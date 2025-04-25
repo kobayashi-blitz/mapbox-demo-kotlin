@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Mapbox Demo</string>
+    <string name="search_hint">Search for places or POIs</string>
+    <string name="zoom_in">Zoom in</string>
+    <string name="zoom_out">Zoom out</string>
+    <string name="my_location">My location</string>
+</resources>
