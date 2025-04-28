@@ -44,9 +44,9 @@ dependencies {
     // Mapbox dependencies
     implementation 'com.mapbox.maps:android:10.12.1'
     
-    // Mapbox Search SDK for search functionality
-    implementation 'com.mapbox.search:mapbox-search-android:1.0.0-beta.43'
-    implementation 'com.mapbox.search:mapbox-search-ui:1.0.0-beta.43'
+    // Mapbox Search SDK for search functionality (updated to 2.8.0)
+    implementation 'com.mapbox.search:mapbox-search-android:2.8.0'
+    implementation 'com.mapbox.search:mapbox-search-ui:2.8.0'
     
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

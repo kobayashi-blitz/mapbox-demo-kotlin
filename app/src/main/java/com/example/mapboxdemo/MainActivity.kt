@@ -3,6 +3,7 @@ package com.example.mapboxdemo
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
@@ -24,14 +25,18 @@ import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorBearingChangedListener
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
 import com.mapbox.maps.plugin.locationcomponent.location
-import com.mapbox.search.ApiType
+import com.mapbox.search.MapboxSearchSdk
+import com.mapbox.search.ResponseInfo
 import com.mapbox.search.SearchEngine
 import com.mapbox.search.SearchEngineSettings
 import com.mapbox.search.SearchOptions
-import com.mapbox.search.SearchRequestTask
-import com.mapbox.search.common.AsyncOperationTask
+import com.mapbox.search.SearchSelectionCallback
+import com.mapbox.search.SearchSuggestionsCallback
+import com.mapbox.search.common.CompletionCallback
+import com.mapbox.search.record.IndexableRecord
 import com.mapbox.search.result.SearchResult
 import com.mapbox.search.result.SearchResultType
+import com.mapbox.search.result.SearchSuggestion
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
@@ -43,8 +48,9 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var pointAnnotationManager: PointAnnotationManager
     private lateinit var searchEngine: SearchEngine
-    private var searchRequestTask: SearchRequestTask? = null
+    private var currentSearchRequestTask: CompletionCallback<List<SearchSuggestion>>? = null
     private var currentUserLocation: Point? = null
+    private var currentSearchSuggestions: List<SearchSuggestion> = emptyList()
 
     // Listeners for location updates
     private val onIndicatorBearingChangedListener = OnIndicatorBearingChangedListener {
@@ -77,9 +83,9 @@ class MainActivity : AppCompatActivity() {
 
         mapView = binding.mapView
         
-        // Initialize search engine
-        searchEngine = SearchEngine.createSearchEngineWithBuiltInDataProviders(
-            SearchEngineSettings(MAPBOX_ACCESS_TOKEN, ApiType.SBS)
+        // Initialize search engine with the latest SDK
+        searchEngine = MapboxSearchSdk.createSearchEngine(
+            SearchEngineSettings(MAPBOX_ACCESS_TOKEN)
         )
         
         // Initialize annotation manager for search results
@@ -145,8 +151,44 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                // Optional: Implement autocomplete suggestions here
-                return false
+                // Implement autocomplete suggestions as the user types
+                newText?.let { query ->
+                    if (query.length >= 3) {
+                        // Get search area (user location or map center)
+                        val searchCenter = currentUserLocation ?: mapView.getMapboxMap().cameraState.center
+                        
+                        // Create search options for suggestions
+                        val options = SearchOptions.Builder()
+                            .limit(5)
+                            .proximity(searchCenter)
+                            .types(listOf(SearchResultType.POI, SearchResultType.ADDRESS))
+                            .languages(listOf(Locale("ja")))
+                            .build()
+                        
+                        // Get suggestions as the user types
+                        currentSearchRequestTask = searchEngine.suggestions(
+                            query,
+                            options,
+                            object : SearchSuggestionsCallback {
+                                override fun onSuggestions(suggestions: List<SearchSuggestion>, responseInfo: ResponseInfo) {
+                                    // Store suggestions for later use
+                                    currentSearchSuggestions = suggestions
+                                    
+                                    // Here you could display suggestions in a dropdown
+                                    // For this implementation, we'll just log them
+                                    if (suggestions.isNotEmpty()) {
+                                        Log.d("MapboxSearch", "Found ${suggestions.size} suggestions")
+                                    }
+                                }
+
+                                override fun onError(e: Exception) {
+                                    Log.e("MapboxSearch", "Error getting suggestions: ${e.message}")
+                                }
+                            }
+                        )
+                    }
+                }
+                return true
             }
         })
     }
@@ -168,7 +210,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun performSearch(query: String) {
         // Cancel any ongoing search
-        searchRequestTask?.cancel()
+        currentSearchRequestTask?.cancel()
         
         // Clear previous markers
         pointAnnotationManager.deleteAll()
@@ -184,17 +226,68 @@ class MainActivity : AppCompatActivity() {
             .languages(listOf(Locale("ja")))  // Prefer Japanese results
             .build()
         
-        // Perform search
-        searchRequestTask = searchEngine.search(query, options) { results ->
-            results.onValue { searchResults ->
+        // First get suggestions using the new suggest API
+        currentSearchRequestTask = searchEngine.suggestions(
+            query,
+            options,
+            object : SearchSuggestionsCallback {
+                override fun onSuggestions(suggestions: List<SearchSuggestion>, responseInfo: ResponseInfo) {
+                    // Store suggestions for later use
+                    currentSearchSuggestions = suggestions
+                    
+                    if (suggestions.isNotEmpty()) {
+                        // Select the first suggestion to get detailed results
+                        selectSuggestion(suggestions.first())
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "No search results found",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+
+                override fun onError(e: Exception) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Search error: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        )
+    }
+    
+    private fun selectSuggestion(suggestion: SearchSuggestion) {
+        searchEngine.select(suggestion, object : SearchSelectionCallback {
+            override fun onResult(suggestion: SearchSuggestion, result: SearchResult, responseInfo: ResponseInfo) {
+                // Add marker for the selected result
+                addMarkerForSearchResult(result)
+                
+                // Move camera to show the result
+                result.coordinate?.let { coordinate ->
+                    mapView.getMapboxMap().setCamera(
+                        CameraOptions.Builder()
+                            .center(Point.fromLngLat(coordinate.longitude(), coordinate.latitude()))
+                            .zoom(14.0)
+                            .build()
+                    )
+                }
+            }
+            
+            override fun onResults(
+                suggestion: SearchSuggestion,
+                results: List<SearchResult>,
+                responseInfo: ResponseInfo
+            ) {
                 // Add markers for each result
-                for (result in searchResults) {
+                for (result in results) {
                     addMarkerForSearchResult(result)
                 }
                 
-                // If we have results, move camera to show them
-                if (searchResults.isNotEmpty()) {
-                    val firstResult = searchResults.first()
+                // If we have results, move camera to show the first one
+                if (results.isNotEmpty()) {
+                    val firstResult = results.first()
                     firstResult.coordinate?.let { coordinate ->
                         mapView.getMapboxMap().setCamera(
                             CameraOptions.Builder()
@@ -205,15 +298,15 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            
-            results.onError { error ->
+
+            override fun onError(e: Exception) {
                 Toast.makeText(
                     this@MainActivity,
-                    "Search error: ${error.message}",
+                    "Search error: ${e.message}",
                     Toast.LENGTH_SHORT
                 ).show()
             }
-        }
+        })
     }
     
     private fun addMarkerForSearchResult(result: SearchResult) {
@@ -307,7 +400,7 @@ class MainActivity : AppCompatActivity() {
         mapView.location.removeOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
         mapView.gestures.removeOnMoveListener(onMoveListener)
         // Cancel any ongoing search
-        searchRequestTask?.cancel()
+        currentSearchRequestTask?.cancel()
         mapView.onDestroy()
     }
 }
