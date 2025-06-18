@@ -5,6 +5,7 @@ plugins {
 
 android {
     compileSdkVersion 33
+
     defaultConfig {
         applicationId "com.example.mapboxdemo"
         minSdkVersion 21
@@ -12,6 +13,9 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // シークレットトークンを buildConfigField で設定
+        buildConfigField "String", "MAPBOX_ACCESS_TOKEN", project.hasProperty("MAPBOX_ACCESS_TOKEN") ? "\"${MAPBOX_ACCESS_TOKEN}\"" : "\"default_value_here\""
     }
 
     buildTypes {
@@ -19,20 +23,26 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        debug {
+            // 同じくシークレットトークンを設定
+            buildConfigField "String", "MAPBOX_ACCESS_TOKEN", project.hasProperty("MAPBOX_ACCESS_TOKEN") ? "\"${MAPBOX_ACCESS_TOKEN}\"" : "\"default_token_here\""
+        }
     }
-    
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
-    
+
     buildFeatures {
         viewBinding true
     }
+
+    namespace 'com.example.mapboxdemo'
 }
 
 dependencies {
@@ -40,14 +50,12 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    
+
     // Mapbox dependencies
     implementation 'com.mapbox.maps:android:10.12.1'
-    
-    // Mapbox Search SDK for search functionality (updated to 2.8.0)
     implementation 'com.mapbox.search:mapbox-search-android:2.8.0'
     implementation 'com.mapbox.search:mapbox-search-ui:2.8.0'
-    
+
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

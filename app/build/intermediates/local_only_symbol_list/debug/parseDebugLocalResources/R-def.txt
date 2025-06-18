@@ -1,0 +1,25 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+drawable ic_my_location
+drawable ic_zoom_in
+drawable ic_zoom_out
+drawable mapbox_user_puck_icon
+id locationButton
+id mapControlsLayout
+id mapView
+id searchCardView
+id searchView
+id zoomInButton
+id zoomOutButton
+layout activity_main
+mipmap ic_launcher
+mipmap ic_launcher_round
+string app_name
+string mapbox_access_token
+string my_location
+string search_hint
+string zoom_in
+string zoom_out
+style Theme.MapboxDemo

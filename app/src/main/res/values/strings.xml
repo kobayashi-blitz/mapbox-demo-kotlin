@@ -4,4 +4,5 @@
     <string name="zoom_in">Zoom in</string>
     <string name="zoom_out">Zoom out</string>
     <string name="my_location">My location</string>
+    <string name="mapbox_access_token">sk.eyJ1IjoiYmxpdHotayIsImEiOiJjbWEwcmNuMWwwdTdrMmtzaGp4Mm96c3ljIn0._n5SQmPGdPafDMhLWx5mag</string>
 </resources>

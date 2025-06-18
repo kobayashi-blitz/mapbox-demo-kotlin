@@ -3,7 +3,6 @@ package com.example.mapboxdemo
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
@@ -25,27 +24,24 @@ import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorBearingChangedListener
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
 import com.mapbox.maps.plugin.locationcomponent.location
-import com.mapbox.search.MapboxSearchSdk
-import com.mapbox.search.ResponseInfo
 import com.mapbox.search.SearchEngine
 import com.mapbox.search.SearchEngineSettings
 import com.mapbox.search.SearchOptions
-import com.mapbox.search.SearchSelectionCallback
-import com.mapbox.search.SearchSuggestionsCallback
 import com.mapbox.search.common.CompletionCallback
-import com.mapbox.search.record.IndexableRecord
 import com.mapbox.search.result.SearchResult
-import com.mapbox.search.result.SearchResultType
 import com.mapbox.search.result.SearchSuggestion
-import java.util.Locale
+import com.mapbox.search.ui.view.search.SearchSelectionCallback
+import com.mapbox.search.ui.view.search.SearchSuggestionsCallback
+import com.example.mapboxdemo.BuildConfig // これでBuildConfigクラスをインポート
+
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var mapView: MapView
-    private val MAPBOX_ACCESS_TOKEN = "" // Will be inserted manually later
+    private val MAPBOX_ACCESS_TOKEN = System.getenv("MAPBOX_ACCESS_TOKEN") ?: "<your_default_token_here>" // シークレットトークンの参照
     private val LOCATION_PERMISSION_REQUEST_CODE = 123
-    
+
     private lateinit var pointAnnotationManager: PointAnnotationManager
     private lateinit var searchEngine: SearchEngine
     private var currentSearchRequestTask: CompletionCallback<List<SearchSuggestion>>? = null
@@ -82,15 +78,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         mapView = binding.mapView
-        
+
         // Initialize search engine with the latest SDK
-        searchEngine = MapboxSearchSdk.createSearchEngine(
-            SearchEngineSettings(MAPBOX_ACCESS_TOKEN)
-        )
-        
+        searchEngine = SearchEngineProvider.getInstance().getSearchEngine()
+
         // Initialize annotation manager for search results
         pointAnnotationManager = mapView.annotations.createPointAnnotationManager()
-        
+
         // Set up UI controls
         setupUIControls()
 
@@ -101,7 +95,7 @@ class MainActivity : AppCompatActivity() {
             requestLocationPermission()
         }
     }
-    
+
     private fun setupUIControls() {
         // Set up zoom in button
         binding.zoomInButton.setOnClickListener {
@@ -112,7 +106,7 @@ class MainActivity : AppCompatActivity() {
                     .build()
             )
         }
-        
+
         // Set up zoom out button
         binding.zoomOutButton.setOnClickListener {
             val currentZoom = mapView.getMapboxMap().cameraState.zoom
@@ -122,7 +116,7 @@ class MainActivity : AppCompatActivity() {
                     .build()
             )
         }
-        
+
         // Set up location button
         binding.locationButton.setOnClickListener {
             currentUserLocation?.let { location ->
@@ -138,7 +132,7 @@ class MainActivity : AppCompatActivity() {
                 mapView.gestures.addOnMoveListener(onMoveListener)
             }
         }
-        
+
         // Set up search functionality
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -156,7 +150,7 @@ class MainActivity : AppCompatActivity() {
                     if (query.length >= 3) {
                         // Get search area (user location or map center)
                         val searchCenter = currentUserLocation ?: mapView.getMapboxMap().cameraState.center
-                        
+
                         // Create search options for suggestions
                         val options = SearchOptions.Builder()
                             .limit(5)
@@ -164,7 +158,7 @@ class MainActivity : AppCompatActivity() {
                             .types(listOf(SearchResultType.POI, SearchResultType.ADDRESS))
                             .languages(listOf(Locale("ja")))
                             .build()
-                        
+
                         // Get suggestions as the user types
                         currentSearchRequestTask = searchEngine.suggestions(
                             query,
@@ -173,7 +167,7 @@ class MainActivity : AppCompatActivity() {
                                 override fun onSuggestions(suggestions: List<SearchSuggestion>, responseInfo: ResponseInfo) {
                                     // Store suggestions for later use
                                     currentSearchSuggestions = suggestions
-                                    
+
                                     // Here you could display suggestions in a dropdown
                                     // For this implementation, we'll just log them
                                     if (suggestions.isNotEmpty()) {
@@ -197,7 +191,7 @@ class MainActivity : AppCompatActivity() {
         // Set locale to Japanese for map labels
         val styleUri = Style.MAPBOX_STREETS
         val styleUriWithLocale = "$styleUri?language=ja"
-        
+
         // Load the map with Japanese labels
         mapView.getMapboxMap().loadStyleUri(styleUriWithLocale) { style ->
             // After style is loaded, set the comic style with Japanese labels
@@ -207,17 +201,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun performSearch(query: String) {
         // Cancel any ongoing search
         currentSearchRequestTask?.cancel()
-        
+
         // Clear previous markers
         pointAnnotationManager.deleteAll()
-        
+
         // Get search area (user location or map center)
         val searchCenter = currentUserLocation ?: mapView.getMapboxMap().cameraState.center
-        
+
         // Create search options
         val options = SearchOptions.Builder()
             .limit(5)  // Limit results to 5
@@ -225,7 +219,7 @@ class MainActivity : AppCompatActivity() {
             .types(listOf(SearchResultType.POI, SearchResultType.ADDRESS))
             .languages(listOf(Locale("ja")))  // Prefer Japanese results
             .build()
-        
+
         // First get suggestions using the new suggest API
         currentSearchRequestTask = searchEngine.suggestions(
             query,
@@ -234,7 +228,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onSuggestions(suggestions: List<SearchSuggestion>, responseInfo: ResponseInfo) {
                     // Store suggestions for later use
                     currentSearchSuggestions = suggestions
-                    
+
                     if (suggestions.isNotEmpty()) {
                         // Select the first suggestion to get detailed results
                         selectSuggestion(suggestions.first())
@@ -257,13 +251,13 @@ class MainActivity : AppCompatActivity() {
             }
         )
     }
-    
+
     private fun selectSuggestion(suggestion: SearchSuggestion) {
         searchEngine.select(suggestion, object : SearchSelectionCallback {
             override fun onResult(suggestion: SearchSuggestion, result: SearchResult, responseInfo: ResponseInfo) {
                 // Add marker for the selected result
                 addMarkerForSearchResult(result)
-                
+
                 // Move camera to show the result
                 result.coordinate?.let { coordinate ->
                     mapView.getMapboxMap().setCamera(
@@ -274,7 +268,7 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
-            
+
             override fun onResults(
                 suggestion: SearchSuggestion,
                 results: List<SearchResult>,
@@ -284,7 +278,7 @@ class MainActivity : AppCompatActivity() {
                 for (result in results) {
                     addMarkerForSearchResult(result)
                 }
-                
+
                 // If we have results, move camera to show the first one
                 if (results.isNotEmpty()) {
                     val firstResult = results.first()
@@ -308,16 +302,16 @@ class MainActivity : AppCompatActivity() {
             }
         })
     }
-    
+
     private fun addMarkerForSearchResult(result: SearchResult) {
         result.coordinate?.let { coordinate ->
             val point = Point.fromLngLat(coordinate.longitude(), coordinate.latitude())
-            
+
             // Create a point annotation
             val pointAnnotationOptions = PointAnnotationOptions()
                 .withPoint(point)
                 .withIconImage(ContextCompat.getDrawable(this, R.drawable.ic_my_location)!!.toBitmap())
-            
+
             // Add the annotation to the map
             pointAnnotationManager.create(pointAnnotationOptions)
         }
@@ -334,7 +328,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
         }
-        
+
         // Add listeners for location updates
         locationComponentPlugin.addOnIndicatorBearingChangedListener(onIndicatorBearingChangedListener)
         locationComponentPlugin.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)

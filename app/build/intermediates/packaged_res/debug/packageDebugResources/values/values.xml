@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mapbox Demo</string>
+    <string name="mapbox_access_token">sk.eyJ1IjoiYmxpdHotayIsImEiOiJjbWEwcmNuMWwwdTdrMmtzaGp4Mm96c3ljIn0._n5SQmPGdPafDMhLWx5mag</string>
+    <string name="my_location">My location</string>
+    <string name="search_hint">Search for places or POIs</string>
+    <string name="zoom_in">Zoom in</string>
+    <string name="zoom_out">Zoom out</string>
+    <style name="Theme.MapboxDemo" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+
+    </style>
+</resources>
